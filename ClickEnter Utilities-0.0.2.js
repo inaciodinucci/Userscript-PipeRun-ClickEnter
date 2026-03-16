@@ -138,6 +138,7 @@
         if (transferTimestamp && !this.atendimentos[cliente].fromTransferMsg) {
           this.atendimentos[cliente].start = transferTimestamp;
           this.atendimentos[cliente].fromTransferMsg = true;
+          this.atendimentos[cliente].lastSeen = Date.now();
           this.storage.salvar(CONFIG.KEYS.TMA_DATA, this.atendimentos);
         } else if (sidebarTimestamp && (sidebarTimestamp - this.atendimentos[cliente].start > 7200000)) {
           // Se a data da sidebar é mais de 2 horas mais nova que a registrada,
@@ -145,19 +146,27 @@
           this.atendimentos[cliente].start = sidebarTimestamp;
           this.atendimentos[cliente].alerted60 = false;
           this.atendimentos[cliente].fromTransferMsg = false;
+          this.atendimentos[cliente].lastSeen = Date.now();
+          this.storage.salvar(CONFIG.KEYS.TMA_DATA, this.atendimentos);
+        } else {
+          // Apenas atualiza o last_seen se a data for muito parecida
+          this.atendimentos[cliente].lastSeen = Date.now();
           this.storage.salvar(CONFIG.KEYS.TMA_DATA, this.atendimentos);
         }
         return;
       }
 
       const timestamp = transferTimestamp || sidebarTimestamp || Date.now();
-      this.atendimentos[cliente] = { start: timestamp, alerted60: false, fromTransferMsg: !!transferTimestamp };
+      this.atendimentos[cliente] = { start: timestamp, alerted60: false, fromTransferMsg: !!transferTimestamp, lastSeen: Date.now() };
       this.storage.salvar(CONFIG.KEYS.TMA_DATA, this.atendimentos);
     }
 
     obterStatus(cliente) {
       const dados = this.atendimentos[cliente];
-      if (!dados) return { minutos: 0, alertar: false, critico: false };
+      // Se não tem dados, ou se o cliente não foi visto na sidebar/painel recentemente (> 3 min), não exibir TMA (ignora fantasmas)
+      if (!dados || (dados.lastSeen && (Date.now() - dados.lastSeen > 180000))) {
+         return { minutos: 0, alertar: false, critico: false };
+      }
       const minutos = Math.floor((Date.now() - dados.start) / 60000);
       const limiteAlerta = this.storage.obter(CONFIG.KEYS.TMA_ALERTA_MIN, 35);
       const limiteCritico = this.storage.obter(CONFIG.KEYS.TMA_CRITICO_MIN, 60);
@@ -165,27 +174,24 @@
     }
 
     verificarAlertaGlobal() {
+      const agora = Date.now();
       for (const cliente in this.atendimentos) {
+        const dados = this.atendimentos[cliente];
+        
+        // Ignorar alertas globais para clientes que não foram vistos na sidebar 
+        // ou chat ativo nos últimos 2 minutos. (Evitar alertas de chats já fechados)
+        if (dados.lastSeen && (agora - dados.lastSeen > 120000)) continue;
+
         const status = this.obterStatus(cliente);
-        if (status.critico && !this.atendimentos[cliente].alerted60) {
+        if (status.critico && !dados.alerted60) {
           this._dispararNotificacao(cliente);
-          this.atendimentos[cliente].alerted60 = true;
+          dados.alerted60 = true;
           this.storage.salvar(CONFIG.KEYS.TMA_DATA, this.atendimentos);
         }
       }
     }
 
-    limparClientesAusentes(activeClients) {
-      if (!activeClients) return;
-      let mudou = false;
-      for (const key in this.atendimentos) {
-        if (!activeClients.has(key)) {
-          delete this.atendimentos[key];
-          mudou = true;
-        }
-      }
-      if (mudou) this.storage.salvar(CONFIG.KEYS.TMA_DATA, this.atendimentos);
-    }
+
 
     _dispararNotificacao(cliente) {
       const msg = `TMA Excedido: O atendimento de ${cliente} já passou de 1 hora!`;
@@ -213,8 +219,13 @@
       const agora = Date.now();
       let mudou = false;
       for (const key in this.atendimentos) {
-        if (agora - this.atendimentos[key].start > 86400000) {
+        const dados = this.atendimentos[key];
+        // Remover lixo se faz mais de 12 horas desde o início OU se não é visto há mais de 1 hora
+        if (agora - dados.start > 43200000 || (dados.lastSeen && (agora - dados.lastSeen > 3600000))) {
           delete this.atendimentos[key];
+          mudou = true;
+        } else if (!dados.lastSeen) {
+          dados.lastSeen = agora; 
           mudou = true;
         }
       }
@@ -1594,7 +1605,7 @@
             spinner.classList.add(statusTMA.critico ? 'critical' : 'warning');
 
             // Adicionar também a borda esquerda (simulando ce-timer-completed-button / channel-active)
-            btn.style.borderLeft = statusTMA.critico ? '4px solid #d50000' : '4px solid #f89406';
+            btn.style.borderLeft = statusTMA.critico ? '4px solid #d50000' : '4px solid #faa52eff';
           } else {
             if (overlay) overlay.remove();
             btn.style.borderLeft = ''; // Reset
