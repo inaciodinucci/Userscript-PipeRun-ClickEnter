@@ -387,19 +387,26 @@
           method: 'GET',
           url: this.updateUrl,
           onload: (res) => {
+            console.log('[ClickEnter] Resposta da checagem de versão:', res.status);
             if (res.status === 200) {
               const remoteVersion = this._parseVersion(res.responseText);
+              console.log('[ClickEnter] Versão remota detectada:', remoteVersion, '| Versão local:', this.currentVersion);
               if (remoteVersion && this._isNewer(remoteVersion, this.currentVersion)) {
+                console.log('[ClickEnter] Nova versão disponível!');
                 this.isNewerVersion = true;
                 resolve(true);
               } else {
+                console.log('[ClickEnter] Versão já está atualizada.');
                 resolve(false);
               }
             } else {
               resolve(false);
             }
           },
-          onerror: () => resolve(false)
+          onerror: (err) => {
+            console.error('[ClickEnter] Erro ao checar atualização:', err);
+            resolve(false);
+          }
         });
       });
     }
@@ -428,7 +435,7 @@
       this.timer = timer;
       this.ai = ai;
       this.tma = tma;
-      this.updateManager = new UpdateManager('0.0.3'); // Current version matched with @version header
+      this.updateManager = new UpdateManager(typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.3');
       this.clienteAtual = 'Desconhecido';
       this.settingsVisible = false;
     }
