@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ClickEnter Utilities
 // @namespace    http://tampermonkey.net/
-// @version      0.0.3
+// @version      0.0.4
 // @description  Utilitários para melhorar a produtividade de atendimento no PipeRun
 // @author       inaciodinucci
 // @match        https://synsuite.clickenter.com.br/*
@@ -12,7 +12,7 @@
 // @connect      generativelanguage.googleapis.com
 // @connect      api.openai.com
 // ==/UserScript==
-//testetesteteste
+
 (function () {
   'use strict';
 
