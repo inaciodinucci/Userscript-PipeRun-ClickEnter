@@ -50,6 +50,3 @@ Acesse o ícone de engrenagem no painel para configurar:
 - Chaves de API (Gemini ou OpenAI) para os recursos de I.A.
 - Limites de tempo para alertas e avisos críticos de TMA.
 - Preferências de interface e largura padrão do painel.
-
-## Exclusão de Arquivos Locais
-Arquivos temporários ou pastas de assets específicos (como as pastas numéricas `12538` e `125348`) são ignorados localmente via `.git/info/exclude` para manter a integridade do repositório principal.
